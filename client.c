@@ -9,7 +9,7 @@
 #define MAGENTA "\033[1;95m"
 #define RESET "\033[0m"
 
-#define PORT 8081
+#include "test.h"
 
 void displaySockaddr_in(struct sockaddr_in* addr)
 {
@@ -23,6 +23,8 @@ void displaySockaddr_in(struct sockaddr_in* addr)
 
 int main ()
 {
+
+	char buf[1024];
 
 	int socketOutside = socket(AF_INET, SOCK_STREAM, 0);
 	printf("Socket Outside created : %d\n", socketOutside);
@@ -38,8 +40,19 @@ int main ()
 	int connect_status = connect(socketOutside, (struct sockaddr*)&addrOutside, sizeof(addrOutside));
 	printf("Connect status : %d\n", connect_status);
 
-	int send_status = send(socketOutside, "Hello", 6, 0);
-	printf("Send status : %d\n", send_status);
+	//int listen_status = listen(socketOutside, 10);
+
+	printf("Message to send : ");
+	while (42)
+	{
+		scanf("%s", buf);
+		int send_status = send(socketOutside, buf, 1024, 0);
+		printf("Send status : %d\n", send_status);
+
+	}
+
+	// int recv_status = recv(socketOutside, buf, 1024, 0);
+	// printf("Recv status : %d\n", recv_status);
 
 	close(socketOutside);
 
