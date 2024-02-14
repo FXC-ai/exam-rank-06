@@ -11,6 +11,7 @@
 
 #define MAGENTA "\033[1;95m"
 #define RED "\033[1;91m"
+#define GREEN "\033[1;92m"
 #define RESET "\033[0m"
 
 #include "test.h"
@@ -25,16 +26,13 @@ void displaySockaddr_in(struct sockaddr_in* addr)
 
 }
 
-void cpy_fd_set(fd_set* dest, fd_set* src)
-{
-	for (int i = 0; i < 1024; i++)
-	{
-		if (FD_ISSET(i, src))
-		{
-			FD_SET(i, dest);
-		}
-	}
-}
+// void cpy_fd_set(fd_set* dest, fd_set* src)
+// {
+// 	for (int i = 0; i < 1024; i++)
+// 	{
+// 			FD_SET(i, dest);
+// 	}
+// }
 
 void display_fd_set(char *title, fd_set* fd_set)
 {
@@ -91,7 +89,7 @@ void run_server ()
 	socketServer = socket(AF_INET, SOCK_STREAM, 0);
 	printf("Socket server created : %d\n", socketServer);	
 	
-	FD_SET(socketServer, &readfds);
+	FD_SET(socketServer, &cpy_readfds);
 
 
 	int bind_result = bind(socketServer, (struct sockaddr*)&addrServer, sizeof(addrServer));
@@ -108,8 +106,10 @@ void run_server ()
 
 	while (42)
 	{
-		cpy_fd_set(&readfds, &cpy_readfds);
-		cpy_fd_set(&writefds, &cpy_writefds);
+		readfds = cpy_readfds;
+		writefds = cpy_writefds;
+		//cpy_fd_set(&readfds, &cpy_readfds);
+		//cpy_fd_set(&writefds, &cpy_writefds);
 
 		max_sd = socketServer;
 
@@ -127,20 +127,24 @@ void run_server ()
 		printf(RED);
 		printf("max_sd : %d\n", max_sd);
 		printf(RESET);
+
 		printf(MAGENTA);
 		printf("Before select\n");
 		printf(RESET);
+
 		/* select() Delete from readfds and writefds all the sockets not "ready" for an I/O operation. */
 		/* Mais c est pas parceque le socket n est pas ready qu il faut le supprimer de readfds et writefds */
 		display_fd_set("    readfds", &readfds);
 		display_fd_set("cpy_readfds", &cpy_readfds);
 		display_fd_set("    writefds", &writefds);
 		display_fd_set("cpy_writefds", &cpy_writefds);
-		
-		if (select(max_sd + 1, &readfds, &writefds, NULL, NULL) > 0)
+		int result_select = select(max_sd + 1, &readfds, &writefds, NULL, NULL);
+		if (result_select > 0)
 		{
+
+
 			printf(MAGENTA);
-			printf("After select\n");
+			printf("something happend with select select : %d\n", result_select);
 			printf(RESET);
 			display_fd_set("    readfds", &readfds);
 			display_fd_set("cpy_readfds", &cpy_readfds);
@@ -148,7 +152,7 @@ void run_server ()
 			display_fd_set("cpy_writefds", &cpy_writefds);
 
 
-			printf("Something happened in select\n");
+
 
 			for (int i = 0; i < max_sd + 1; i++)
 			{
@@ -157,7 +161,7 @@ void run_server ()
 				{
 					socketClient = accept(socketServer, (struct sockaddr*)&addrServer, (socklen_t *)&addrServer_len);
 					printf("Socket client created : %d\n", socketClient);
-					FD_SET(socketClient, &readfds);
+					// FD_SET(socketClient, &readfds);
 					FD_SET(socketClient, &cpy_readfds);
 				}
 				else
@@ -167,7 +171,7 @@ void run_server ()
 					if (FD_ISSET(i, &readfds))
 					{
 						printf("MAIS PUTAIN\n");
-						recv_status = recv(socketClient, buf, 1024, 0);
+						recv_status = recv(i, buf, 1024, 0);
 						printf("recv_status : %d\n", recv_status);
 						// if (recv_status == 0)
 						// {
@@ -189,14 +193,16 @@ void run_server ()
 						// }
 						if (recv_status > 0)
 						{
+							printf(GREEN);
 							printf("Received (%d): %s from %d\n",recv_status, buf, i);
+							printf(RESET);
 							printf("Socket %d is in readfds\n", i);
 						}
 
 
 						//FD_CLEAR(i, &readfds);
 					}
-					if (FD_ISSET(i, &writefds))
+					else if (FD_ISSET(i, &writefds))
 					{
 						send_status = send(socketClient, "MSG", 3, 0);
 						printf("Socket %d is in writefds\n", i);
