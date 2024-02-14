@@ -62,29 +62,10 @@ void run_server ()
 
 int main()
 {
-
-	int socketOutside = socket(AF_INET, SOCK_STREAM, 0);
-	printf("Socket Outside created : %d\n", socketOutside);
-
-	struct sockaddr_in addrOutside;
-	addrOutside.sin_family = AF_INET;
-	addrOutside.sin_port = htons(PORT);
-	addrOutside.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-	printf("Socket Outside addrServer : \n");
-	displaySockaddr_in(&addrOutside);
-
+	
 	printf("--------------Server start-------------------\n");
 	run_server();
 
-	int connect_status = connect(socketOutside, (struct sockaddr*)&addrOutside, sizeof(addrOutside));
-	printf("Connect status : %d\n", connect_status);
 
-	int send_status = send(socketOutside, "Hello", 6, 0);
-	printf("Send status : %d\n", send_status);
-
-
-
-	close(socketOutside);
 	return 0;
 }
