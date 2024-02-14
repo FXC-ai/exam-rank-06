@@ -27,6 +27,20 @@ void run_server ()
 	int socketServer;
 	int socketClient;
 
+	fd_set readfds;
+	fd_set writefds;
+
+	FD_ZERO(&readfds);
+	FD_ZERO(&writefds);
+
+
+	for (int i = 0; i < 1024; i++)
+	{
+		if (FD_ISSET)
+
+
+	}
+
 	struct sockaddr_in addrServer;
 	int addrServer_len = sizeof(addrServer);
 
