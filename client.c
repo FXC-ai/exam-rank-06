@@ -40,7 +40,10 @@ int main ()
 	int connect_status = connect(socketOutside, (struct sockaddr*)&addrOutside, sizeof(addrOutside));
 	printf("Connect status : %d\n", connect_status);
 
-	//int listen_status = listen(socketOutside, 10);
+	int listen_status = listen(socketOutside, 10);
+	
+	printf("Listen status : %d\n", listen_status);
+
 
 	printf("Message to send : ");
 	while (42)

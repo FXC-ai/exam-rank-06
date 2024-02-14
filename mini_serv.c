@@ -173,12 +173,12 @@ void run_server ()
 						printf("MAIS PUTAIN\n");
 						recv_status = recv(i, buf, 1024, 0);
 						printf("recv_status : %d\n", recv_status);
-						// if (recv_status == 0)
-						// {
-						// 	printf("Client %d disconnected\n", i);
-						// 	close(i);
+						if (recv_status == 0)
+						{
+						 	printf("Client %d disconnected\n", i);
+						 	close(i);
 						// 	FD_CLR(i, &readfds);
-						// 	FD_CLR(i, &cpy_readfds);
+						 	FD_CLR(i, &cpy_readfds);
 						// 	FD_CLR(i, &writefds);
 						// 	FD_CLR(i, &cpy_writefds);
 						// }
@@ -190,12 +190,22 @@ void run_server ()
 						// 	FD_CLR(i, &cpy_readfds);
 						// 	FD_CLR(i, &writefds);
 						// 	FD_CLR(i, &cpy_writefds);
-						// }
-						if (recv_status > 0)
+						}
+						else if (recv_status > 0)
 						{
 							printf(GREEN);
 							printf("Received (%d): %s from %d\n",recv_status, buf, i);
 							printf(RESET);
+
+							for (int j = 0; j < 1024; j++)
+							{
+								if ( j != socketServer && j!= i)
+								{
+									send_status = send(j, buf, recv_status, 0);
+								}
+							}
+
+
 							printf("Socket %d is in readfds\n", i);
 						}
 
