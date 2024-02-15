@@ -194,8 +194,19 @@ void run_server ()
 					if (FD_ISSET(i, &readfds))
 					{
 						
+						memset(buf, 0, sizeof(buf));
 						recv_status = recv(i, buf, 1024, 0);
 
+						int index = 0;
+
+						printf(RED);
+						while (index < 1024 )
+						{
+							printf("%c", buf[index]);
+							++index;
+						}
+						printf(RESET);
+						
 
 						printf("\n");
 

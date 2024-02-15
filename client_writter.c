@@ -23,7 +23,7 @@ void displaySockaddr_in(struct sockaddr_in* addr)
 
 int main ()
 {
-	char buf[1024];
+	//char buf[1024];
 
 	int socketOutside = socket(AF_INET, SOCK_STREAM, 0);
 	printf("Socket Outside created : %d\n", socketOutside);
@@ -42,8 +42,8 @@ int main ()
 	while (42)
 	{
 		printf("Message to send : ");
-		scanf("%s", buf);
-		int send_status = send(socketOutside, buf, 1024, 0);
+		sleep(5);
+		int send_status = send(socketOutside, "Les cousins il viennent de partout. Putain j ai peur.", 1024, 0);
 		printf("Send status : %d\n", send_status);
 	}
 
