@@ -16,6 +16,35 @@
 
 #include "test.h"
 
+
+void display_clients(int *clients)
+{
+	printf(MAGENTA);
+	printf("Clients : ");
+	printf(RESET);
+
+	for (int i = 0; i < 1024; i++)
+	{
+		if (clients[i]!= 0)
+		{	
+			printf(" %d : %d | ", i, clients[i]);
+		}
+	}
+	printf("\n");
+}
+
+int find_id_from_socket(int *clients, int sock)
+{
+	for (int i = 0; i < 1024; i++)
+	{
+		if (clients[i] == sock)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
 void displaySockaddr_in(struct sockaddr_in* addr)
 {
 	printf(MAGENTA);
@@ -25,14 +54,6 @@ void displaySockaddr_in(struct sockaddr_in* addr)
 	printf(RESET);
 
 }
-
-// void cpy_fd_set(fd_set* dest, fd_set* src)
-// {
-// 	for (int i = 0; i < 1024; i++)
-// 	{
-// 			FD_SET(i, dest);
-// 	}
-// }
 
 void display_fd_set(char *title, fd_set* fd_set)
 {
@@ -51,6 +72,12 @@ void display_fd_set(char *title, fd_set* fd_set)
 
 void run_server ()
 {
+
+	/* cients[id] = sock */
+	int clients[1024];
+
+	memset(clients, 0, sizeof(clients));
+
 	int socketServer;
 	int socketClient;
 
@@ -102,14 +129,13 @@ void run_server ()
 	int listen_result = listen(socketServer, 10);
 	printf("Listen result : %d\n", listen_result);
 
-
+	int last_id = 0;
 
 	while (42)
 	{
 		readfds = cpy_readfds;
 		writefds = cpy_writefds;
-		//cpy_fd_set(&readfds, &cpy_readfds);
-		//cpy_fd_set(&writefds, &cpy_writefds);
+
 
 		max_sd = socketServer;
 
@@ -132,69 +158,63 @@ void run_server ()
 		printf("Before select\n");
 		printf(RESET);
 
-		/* select() Delete from readfds and writefds all the sockets not "ready" for an I/O operation. */
-		/* Mais c est pas parceque le socket n est pas ready qu il faut le supprimer de readfds et writefds */
-		display_fd_set("    readfds", &readfds);
-		display_fd_set("cpy_readfds", &cpy_readfds);
-		display_fd_set("    writefds", &writefds);
-		display_fd_set("cpy_writefds", &cpy_writefds);
+		display_fd_set("     readfds", &readfds);
+		display_fd_set(" cpy_readfds", &cpy_readfds);
+
 		int result_select = select(max_sd + 1, &readfds, &writefds, NULL, NULL);
+		
+		
 		if (result_select > 0)
 		{
-
 
 			printf(MAGENTA);
 			printf("something happend with select select : %d\n", result_select);
 			printf(RESET);
-			display_fd_set("    readfds", &readfds);
-			display_fd_set("cpy_readfds", &cpy_readfds);
-			display_fd_set("    writefds", &writefds);
-			display_fd_set("cpy_writefds", &cpy_writefds);
-
-
-
+			display_fd_set("     readfds", &readfds);
+			display_fd_set(" cpy_readfds", &cpy_readfds);
 
 			for (int i = 0; i < max_sd + 1; i++)
 			{
-				// printf("i : %d\n", i);
+				printf("i : %d\n", i);
 				if (FD_ISSET(i, &readfds) && i == socketServer)
 				{
 					socketClient = accept(socketServer, (struct sockaddr*)&addrServer, (socklen_t *)&addrServer_len);
 					printf("Socket client created : %d\n", socketClient);
-					// FD_SET(socketClient, &readfds);
+
 					FD_SET(socketClient, &cpy_readfds);
+					clients[last_id] = socketClient;
+					++last_id;
+
+					display_clients(clients);
+
 				}
 				else
 				{
-					printf("Socket %d need to be read or written %d \n", i, FD_ISSET(i, &readfds));
-				
+
 					if (FD_ISSET(i, &readfds))
 					{
-						printf("MAIS PUTAIN\n");
+						
 						recv_status = recv(i, buf, 1024, 0);
+
+
+						printf("\n");
+
 						printf("recv_status : %d\n", recv_status);
 						if (recv_status == 0)
 						{
 						 	printf("Client %d disconnected\n", i);
 						 	close(i);
-						// 	FD_CLR(i, &readfds);
+
 						 	FD_CLR(i, &cpy_readfds);
-						// 	FD_CLR(i, &writefds);
-						// 	FD_CLR(i, &cpy_writefds);
-						// }
-						// else if (recv_status < 0)
-						// {
-						// 	printf("Error while receiving\n");
-						// 	close(i);
-						// 	FD_CLR(i, &readfds);
-						// 	FD_CLR(i, &cpy_readfds);
-						// 	FD_CLR(i, &writefds);
-						// 	FD_CLR(i, &cpy_writefds);
+
 						}
 						else if (recv_status > 0)
 						{
+							display_clients(clients);
+
+
 							printf(GREEN);
-							printf("Received (%d): %s from %d\n",recv_status, buf, i);
+							printf("Received (%d): %s from %d\n",recv_status, buf, find_id_from_socket(clients, i));
 							printf(RESET);
 
 							for (int j = 0; j < 1024; j++)
@@ -205,22 +225,12 @@ void run_server ()
 								}
 							}
 
-
 							printf("Socket %d is in readfds\n", i);
 						}
-
-
-						//FD_CLEAR(i, &readfds);
-					}
-					else if (FD_ISSET(i, &writefds))
-					{
-						send_status = send(socketClient, "MSG", 3, 0);
-						printf("Socket %d is in writefds\n", i);
 					}
 				}
 			}
 		}
-		
 	}
 	close(socketServer);
 	close(socketClient);
