@@ -16,7 +16,6 @@
 
 #include "test.h"
 
-
 void display_clients(int *clients)
 {
 	printf(MAGENTA);
@@ -69,6 +68,23 @@ void display_fd_set(char *title, fd_set* fd_set)
 	printf(RESET);
 	printf("\n");
 }
+
+void send_to_all (int socketServer, int socketSender, int max_sd, char *buf)
+{
+	int send_status;
+
+	for (int j = 0; j < max_sd + 1; j++)
+	{
+		if ( j != socketServer && j!= socketSender)
+		{
+			printf("Envoie du message sur la socket %d \n", j);
+			send_status = send(j, buf, recv_status, 0);
+			(void) send_status;
+			//printf("send_status = %d\n", send_status);
+		}
+	}
+}
+
 
 void run_server ()
 {
@@ -187,6 +203,7 @@ void run_server ()
 
 					display_clients(clients);
 
+			
 				}
 				else
 				{
@@ -197,19 +214,7 @@ void run_server ()
 						memset(buf, 0, sizeof(buf));
 						recv_status = recv(i, buf, 1024, 0);
 
-						int index = 0;
-
-						printf(RED);
-						while (index < 1024 )
-						{
-							printf("%c", buf[index]);
-							++index;
-						}
-						printf(RESET);
-						
-
-						printf("\n");
-
+				
 						printf("recv_status : %d\n", recv_status);
 						if (recv_status == 0)
 						{
@@ -217,7 +222,9 @@ void run_server ()
 						 	close(i);
 
 						 	FD_CLR(i, &cpy_readfds);
+							clients[find_id_from_socket(clients, i)] = 0;
 
+							display_clients(clients);
 						}
 						else if (recv_status > 0)
 						{
@@ -228,11 +235,14 @@ void run_server ()
 							printf("Received (%d): %s from %d\n",recv_status, buf, find_id_from_socket(clients, i));
 							printf(RESET);
 
-							for (int j = 0; j < 1024; j++)
+							for (int j = 0; j < max_sd + 1; j++)
 							{
 								if ( j != socketServer && j!= i)
 								{
+									printf("Envoie du message sur la socket %d \n", j);
 									send_status = send(j, buf, recv_status, 0);
+									(void) send_status;
+									//printf("send_status = %d\n", send_status);
 								}
 							}
 
