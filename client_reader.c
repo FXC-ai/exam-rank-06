@@ -24,7 +24,7 @@ void displaySockaddr_in(struct sockaddr_in* addr)
 int main ()
 {
 
-	char buf[1024];
+	char buf[4096];
 
 	int socketOutside = socket(AF_INET, SOCK_STREAM, 0);
 	printf("Socket Outside created : %d\n", socketOutside);
@@ -40,15 +40,12 @@ int main ()
 	int connect_status = connect(socketOutside, (struct sockaddr*)&addrOutside, sizeof(addrOutside));
 	printf("Connect status : %d\n", connect_status);
 
-	int listen_status = listen(socketOutside, 10);	
-	printf("Listen status : %d\n", listen_status);
-
 	while (42)
 	{
-		int recvs_status = recv(socketOutside, buf, 1024, 0);
+		int recvs_status = recv(socketOutside, buf, 4096, 0);
 		if (recvs_status > 0)
 		{
-			printf("Message received : %s\n", buf);
+			printf("%s\n", buf);
 		}	
 	}
 	
