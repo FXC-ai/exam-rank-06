@@ -14,7 +14,7 @@
 #define GREEN "\033[1;92m"
 #define RESET "\033[0m"
 
-#include "test.h"
+// #include "test.h"
 
 #include <stdlib.h>
 
@@ -71,24 +71,55 @@ void display_fd_set(char *title, fd_set* fd_set)
 	printf("\n");
 }
 
-void send_to_all (int socketServer, int socketSender, int *clients, char *buf)
-{
-	int send_status;
 
-	printf("Buffer size = %lu\n", strlen(buf));
-	for (int index = 0; index < 1024; index++)
+
+
+
+void send_to_all (int socketServer, int socketSender, char *msg, int max_sd)
+{
+
+	int send_status;
+	//char msg[4096];
+
+	for (int j = 0; j < max_sd + 1; j++)
 	{
-		if (clients[index]!= 0 && clients[index]!= socketSender && clients[index]!= socketServer)
+		if ( j != socketServer && j!= socketSender)
 		{
-			//printf("Envoie du message sur la socket %d \n", clients[index]);
-			send_status = send(clients[index], buf, strlen(buf), 0);
+			// printf("Envoie du message sur la socket %d \n", j);
+			//memset(buf, 0, sizeof(buf));
+
+			// sprintf(msg, "client %d : %s", find_id_from_socket(clients, socketSender), msg);
+
+
+			send_status = send(j, msg, strlen(msg), 0);
+			// send_status = write(j, buf, recv_status);
 			(void) send_status;
+			//printf("send_status = %d\n", send_status);
 		}
 	}
+
 }
 
-void run_server ()
+void fatal_error()
 {
+	write(2, "Fatal error\n", 14);
+}
+
+int main(int argc, char **argv)
+{
+	int port;
+
+	if (argc!= 2)
+	{
+		write(2, "Wrong number of arguments\n", 26);
+		return 1;
+	}
+	else
+	{
+		port = atoi(argv[1]);
+	}
+
+	printf("--------------Server start-------------------\n");
 
 	/* cients[id] = sock */
 	int clients[1024];
@@ -104,7 +135,7 @@ void run_server ()
 	char buf[4096];
 
 	int recv_status;
-	int send_status;
+	// int send_status;
 
 	fd_set readfds;
 	fd_set writefds;
@@ -124,13 +155,18 @@ void run_server ()
 	memset(&addrServer, 0, addrServer_len);
 
 	addrServer.sin_family = AF_INET;
-	addrServer.sin_port = htons(PORT);
+	addrServer.sin_port = htons(port);
 	addrServer.sin_addr.s_addr = INADDR_ANY;
 
 	printf("Socket server addrServer : \n");
 	displaySockaddr_in(&addrServer);
 
 	socketServer = socket(AF_INET, SOCK_STREAM, 0);
+	if (socketServer < 0)
+	{
+		fatal_error();
+		return -1;
+	}
 	printf("Socket server created : %d\n", socketServer);	
 	
 	FD_SET(socketServer, &cpy_readfds);
@@ -139,11 +175,16 @@ void run_server ()
 	int bind_result = bind(socketServer, (struct sockaddr*)&addrServer, sizeof(addrServer));
 	if (bind_result < 0)
 	{
-		perror("bind() failed");
-		printf("Bind result : %d\n", bind_result);
-		return;
+		fatal_error();
+		return 1;
 	}
+
 	int listen_result = listen(socketServer, 10);
+	if (listen_result < 0)
+	{
+		fatal_error();
+		return 1;
+	}
 	printf("Listen result : %d\n", listen_result);
 
 	int last_id = 0;
@@ -202,14 +243,15 @@ void run_server ()
 					clients[last_id] = socketClient;
 					++last_id;
 
+					printf("last_id : %d\n", last_id);
+
 					display_clients(clients);
 
-					sprintf(buf, "server: client %d just arrived\n", socketClient);
+					sprintf(buf, "server: client %d just arrived\n", find_id_from_socket(clients, socketClient));
 
-					send_to_all(socketServer, socketClient, clients, buf);
+					send_to_all(socketServer, socketClient, buf, max_sd);
 
 					memset(buf, 0, sizeof(buf));
-
 
 				}
 				else
@@ -221,7 +263,6 @@ void run_server ()
 
 						recv_status = recv(i, buf, 4096, 0);
 
-				
 						printf("recv_status : %d\n", recv_status);
 						if (recv_status == 0)
 						{
@@ -229,37 +270,27 @@ void run_server ()
 						 	close(i);
 
 						 	FD_CLR(i, &cpy_readfds);
+							
+							sprintf(buf, "server: client %d just left\n", find_id_from_socket(clients, i));
+							
+							send_to_all(socketServer, i, buf, max_sd);
 							clients[find_id_from_socket(clients, i)] = 0;
-
 							display_clients(clients);
 						}
 						else if (recv_status > 0)
 						{
 							display_clients(clients);
 
-
 							printf(GREEN);
 							printf("Received (%d): %s from %d\n",recv_status, buf, find_id_from_socket(clients, i));
 							printf(RESET);
 
 							char msg[4128];
+							memset(msg, 0, sizeof(msg));
+							sprintf(msg, "client %d : %s", find_id_from_socket(clients, i), buf);
 
-							for (int j = 0; j < max_sd + 1; j++)
-							{
-								if ( j != socketServer && j!= i)
-								{
-									// printf("Envoie du message sur la socket %d \n", j);
-									//memset(buf, 0, sizeof(buf));
+							send_to_all(socketServer, i, msg, max_sd);
 
-									sprintf(msg, "client %d : %s", find_id_from_socket(clients, i), buf);
-
-
-									send_status = send(j, msg, strlen(msg), 0);
-									// send_status = write(j, buf, recv_status);
-									(void) send_status;
-									//printf("send_status = %d\n", send_status);
-								}
-							}
 							printf("Socket %d is in readfds\n", i);
 						}
 					}
@@ -269,15 +300,8 @@ void run_server ()
 	}
 	close(socketServer);
 	close(socketClient);
-}
-
-
-int main()
-{
-	
-	printf("--------------Server start-------------------\n");
-	run_server();
-
-
+ 
 	return 0;
+
+	// https://www.youtube.com/watch?v=OxErBK-I2E4
 }
