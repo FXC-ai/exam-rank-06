@@ -293,13 +293,24 @@ int main(int argc, char **argv)
 
 							printf("Socket %d is in readfds\n", i);
 						}
+						else if (recv_status < 0)
+						{
+						 	close(i);
+						 	FD_CLR(i, &cpy_readfds);
+
+							sprintf(buf, "server: client %d just left\n", find_id_from_socket(clients, i));
+
+							send_to_all(socketServer, i, buf, max_sd);			
+							clients[find_id_from_socket(clients, i)] = 0;
+
+						}
 					}
 				}
 			}
 		}
 	}
 	close(socketServer);
-	close(socketClient);
+	//close(socketClient);
  
 	return 0;
 
