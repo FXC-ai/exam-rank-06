@@ -1,177 +1,113 @@
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
-#include <unistd.h>
-#include <fcntl.h>
-
-#include <string.h>
-
 #include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/select.h>
-#include <stdlib.h>
 
-int find_id_from_socket(int *clients, int sock)
+typedef struct client
 {
-	for (int i = 0; i < 1024; i++)
-	{
-		if (clients[i] == sock)
-		{
-			return i;
-		}
-	}
-	return -1;
+    int id;
+    char msg[100000];
+}t_client;
+
+t_client clients[1024];
+
+int max = 0, next_id = 0;
+fd_set active, readyRead, readyWrite;
+char bufRead[424242], bufWrite[424242];
+
+void exitError(char *str)
+{
+    if (str)
+        write(2, str, strlen(str));
+    exit(1);
 }
 
-void send_to_all (int socketServer, int socketSender, char *msg, int max_sd)
+void sendAll(int es)
 {
-	for (int j = 0; j < max_sd + 1; j++)
-	{
-		if ( j != socketServer && j!= socketSender)
-		{
-			send(j, msg, strlen(msg), 0);
-		}
-	}
+    for(int i = 0; i <= max; i++)
+    {
+        if (FD_ISSET(i, &readyWrite) && i != es)
+            send(i, bufWrite, strlen(bufWrite), 0);
+    }
 }
 
-void fatal_error()
+int main(int ac, char **av)
 {
-	write(2, "Fatal error\n", 14);
-}
+    if (ac != 2)
+        exitError("Wrong number of arguments\n");
+    int port = atoi(av[1]);
 
-int main(int argc, char **argv)
-{
-	int port;
+    int serverSock = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSock < 0)
+        exitError("Fatal error\n");
 
-	if (argc!= 2)
-	{
-		write(2, "Wrong number of arguments\n", 26);
-		return 1;
-	}
-	port = atoi(argv[1]);
-	
-	/* cients[id] = sock */
-	int clients[1024];
-	memset(clients, 0, sizeof(clients));
+    bzero(clients, sizeof(clients));
+    FD_ZERO(&active);
 
-	int socketClient = 0;
+    max = serverSock;
+    FD_SET(serverSock,&active);
 
-	int max_sd = 0;
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = (1<<24)+127;
+    addr.sin_port = htons(port);
 
-	char buf[4096];
-	memset(buf, 0, sizeof(buf));
+    if ((bind(serverSock, (const struct sockaddr *)&addr, sizeof(addr)))<0)
+        exitError("Fatal error\n");
+    if (listen(serverSock, 128)<0)
+        exitError("Fatal error\n");
 
-	char msg[4196];
-	memset(msg, 0, sizeof(msg));
+    while(1)
+    {
+        readyRead = readyWrite = active;
+        if (select(max +1, &readyRead, &readyWrite, NULL, NULL) < 0)
+            continue;
 
-	int recv_status = 0;
-
-	fd_set readfds;
-	fd_set cpy_readfds;
-	FD_ZERO(&readfds);
-	FD_ZERO(&cpy_readfds);
-
-	struct sockaddr_in addrServer;
-	int addrServer_len = sizeof(addrServer);
-
-	memset(&addrServer, 0, addrServer_len);
-
-	addrServer.sin_family = AF_INET;
-	addrServer.sin_port = htons(port);
-	addrServer.sin_addr.s_addr = INADDR_ANY;
-
-	int socketServer = socket(AF_INET, SOCK_STREAM, 0);
-	if (socketServer < 0)
-	{
-		fatal_error();
-		return 1;
-	}
-
-	FD_SET(socketServer, &cpy_readfds);
-
-	int bind_result = bind(socketServer, (struct sockaddr*)&addrServer, sizeof(addrServer));
-	if (bind_result < 0)
-	{
-		fatal_error();
-		return 1;
-	}
-
-	int listen_result = listen(socketServer, 10);
-	if (listen_result < 0)
-	{
-		fatal_error();
-		return 1;
-	}
-
-	int last_id = 0;
-	int result_select = 0;
-
-	while (42)
-	{
-		readfds = cpy_readfds;
-		max_sd = socketServer;
-
-		for (int i = 0; i < 1024; i++)
-		{
-			if (FD_ISSET(i, &readfds) && i > max_sd)
-			{
-				max_sd = i;
-			}
-		}
-
-		result_select = select(max_sd + 1, &readfds, NULL, NULL, NULL);
-		if (result_select > 0)
-		{
-			for (int i = 0; i < max_sd + 1; i++)
-			{
-				if (FD_ISSET(i, &readfds) && i == socketServer)
-				{
-					socketClient = accept(socketServer, (struct sockaddr*)&addrServer, (socklen_t *)&addrServer_len);
-					FD_SET(socketClient, &cpy_readfds);
-					clients[last_id] = socketClient;
-					++last_id;
-					memset(buf, 0, sizeof(buf));
-					sprintf(buf, "server: client %d just arrived\n", find_id_from_socket(clients, socketClient));
-					send_to_all(socketServer, socketClient, buf, max_sd);
-					memset(buf, 0, sizeof(buf));
-				}
-				else
-				{
-					if (FD_ISSET(i, &readfds))
-					{
-						memset(buf, 0, sizeof(buf));
-						recv_status = recv(i, buf, 4096, 0);
-						if (recv_status <= 0)
-						{
-						 	close(i);
-						 	FD_CLR(i, &cpy_readfds);
-							sprintf(buf, "server: client %d just left\n", find_id_from_socket(clients, i));
-							send_to_all(socketServer, i, buf, max_sd);
-							clients[find_id_from_socket(clients, i)] = 0;
-						}
-						else if (recv_status > 0)
-						{
-							printf("recv_status : %d strlen : %lu : %s\n", recv_status, strlen(buf), buf);
-							int pi;
-							for(pi = 0; pi < recv_status; ++pi)
-							{
-								if (buf[pi] == '\n')
-								{
-									buf[pi] = '\0';
-									break;
-								}
-							}
-							printf("pi = %d\n", pi);
-							buf[pi] = '\n';
-							memset(msg, 0, sizeof(msg));
-							sprintf(msg, "client %d: %s", find_id_from_socket(clients, i), buf);
-
-							send_to_all(socketServer, i, msg, max_sd);
-						}
-					}
-				}
-			}
-		}
-	}
-	close(socketServer);
-	return 0;
+        for(int fd = 0; fd <= max; fd++)
+        {
+            if (FD_ISSET(fd, &readyRead) && fd == serverSock)
+            {
+                int clientSocket = accept(serverSock, NULL, NULL);
+                if (serverSock < 0)
+                    continue;
+                max = (clientSocket > max) ? clientSocket:max;
+                clients[clientSocket].id = next_id++;
+                FD_SET(clientSocket, &active);
+                sprintf(bufWrite, "server: client %d just arrived\n", clients[clientSocket].id);
+                sendAll(clientSocket);
+                break;
+            }
+            if (FD_ISSET(fd, &readyRead) && fd != serverSock)
+            {
+                int read = recv(fd, bufRead, 424242, 0);
+                if (read <= 0)
+                {
+                    sprintf(bufWrite, "server: client %d just left\n", clients[fd].id);
+                    sendAll(fd);
+                    FD_CLR(fd, &active);
+                    close(fd);
+                    break; 
+                }
+                else
+                {
+                    for(int i = 0, j = strlen(clients[fd].msg); i< read; i++, j++)
+                    {
+						printf("j = %d\n", j);
+                        clients[fd].msg[j] = bufRead[i];
+                        if (clients[fd].msg[j] == '\n')
+                        {
+                            clients[fd].msg[j] = '\0';
+                            sprintf(bufWrite, "client %d: %s\n", clients[fd].id, clients[fd].msg);
+                            sendAll(fd);
+                            bzero(&clients[fd].msg, strlen(clients[fd].msg));
+                            j = -1;
+                        }
+                    }
+                    break;
+                }
+            }
+        } 
+    }   
 }
