@@ -94,7 +94,6 @@ int main(int ac, char **av)
                 {
                     for(int i = 0, j = strlen(clients[fd].msg); i< read; i++, j++)
                     {
-						printf("j = %d\n", j);
                         clients[fd].msg[j] = bufRead[i];
                         if (clients[fd].msg[j] == '\n')
                         {

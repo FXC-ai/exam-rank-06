@@ -17,7 +17,7 @@ int main (int argc, char *argv[])
 {
 	if (argc != 2)
 	{
-		write (2, "Fatal error\n", 12);
+		write (2, "Wrong number of arguments\n", 26);
 		exit(1);
 	}
 	int port = atoi(argv[1]);
@@ -66,16 +66,15 @@ int main (int argc, char *argv[])
 	int last_id = 0;
 	FD_SET(socket_server, &active);
 
+
 	while (42)
 	{
 		readfds = writefds = active;
-
-		if (select (socket_server, &readfds, &writefds, NULL, NULL) <= 0)
+		int result = select (max_sd + 1, &readfds, &writefds, NULL, NULL);
+		if (result < 0)
 		{
 			continue;
 		}
-		printf("BOUCLE\n");
-
 		for (int fd = 0; fd < max_sd + 1 ; fd++)
 		{
 			if (FD_ISSET(fd, &readfds) && fd == socket_server)
@@ -93,23 +92,20 @@ int main (int argc, char *argv[])
 				{
 					max_sd = new_socket;
 				}
-
 				bzero(&write_buffer, sizeof(write_buffer));
-				sprintf(write_buffer, "server: client %d just arrived\n", clients[fd].id);
+				sprintf(write_buffer, "server: client %d just arrived\n", clients[new_socket].id);
 				for (int j = 0; j < max_sd + 1; j++)
 				{
-					if (j != socket_server && j != fd)
+					if (j != socket_server && j != new_socket)
 					{
 						send(j, write_buffer, strlen(write_buffer), 0);
 					}
 				}
 				break;
 			}
-
 			if (FD_ISSET(fd, &readfds) && fd != socket_server)
 			{
 				int read = recv(fd, read_buffer, 5000, 0); // point a ameliorer : utiliser le read_buffer...
-
 				if (read <= 0)
 				{
 					bzero(&write_buffer, sizeof(write_buffer));
