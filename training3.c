@@ -27,6 +27,12 @@ void send_to_all (int max_sd, int socket_server, int socket_client, char *buffer
 	}	
 }
 
+void exitError()
+{
+	write(2, "Fatal error\n", 12);
+	exit(1);
+}
+
 int main(int argc, char *argv[])
 {
 	if (argc != 2)
@@ -34,6 +40,7 @@ int main(int argc, char *argv[])
 		write(2, "Wrong number of arguments\n", 26);
 		exit(1);
 	}
+
 	int port;
 	port = atoi(argv[1]);
 
@@ -57,24 +64,18 @@ int main(int argc, char *argv[])
 	FD_ZERO(&active);
 
 	socket_server = socket(AF_INET, SOCK_STREAM, 0); 
-	if (socket_server == -1) { 
-		write(2, "Fatal error\n", 12);
-		exit(1); 
-	} 
+	if (socket_server == -1)
+		exitError();
 
 	bzero(&servaddr, sizeof(servaddr)); 
 	servaddr.sin_family = AF_INET; 
 	servaddr.sin_addr.s_addr = htonl(2130706433); //127.0.0.1
 	servaddr.sin_port = htons(port); 
   
-	if ((bind(socket_server, (const struct sockaddr *)&servaddr, sizeof(servaddr))) != 0) { 
-		write(2, "Fatal error\n", 12);
-		exit(1);
-	} 
-	if (listen(socket_server, 128) != 0) {
-		write(2, "Fatal error\n", 12);
-		exit(1);
-	}
+	if ((bind(socket_server, (const struct sockaddr *)&servaddr, sizeof(servaddr))) != 0) 
+		exitError();
+	if (listen(socket_server, 128) != 0)
+		exitError();
 
 	max_sd = socket_server;
 	FD_SET(socket_server, &active);
@@ -93,10 +94,8 @@ int main(int argc, char *argv[])
 			{
 				len = sizeof(cliaddr);
 				socket_client = accept(socket_server, (struct sockaddr *)&cliaddr, &len);
-				if (socket_client < 0) { 
-					write(2, "Fatal error\n", 12);
-					exit(1); 
-				}
+				if (socket_client < 0) 
+					continue;
 				FD_SET(socket_client, &active);
 				if (socket_client > max_sd)
 					max_sd = socket_client;
@@ -122,16 +121,31 @@ int main(int argc, char *argv[])
 				}
 				else
 				{
-					int j =0;
-					while (buffer_read[j] != '\n' && j <= read)
+					for (int i = 0; i < read; i++)
 					{
-						buffer_write[j] = buffer_read[j];
-						j++;
+						buffer_write[i] = buffer_read[i];
+						if (buffer_read[i] == '\n')
+						{
+							buffer_write[i] = '\0';
+							sprintf(clients[fd].msg, "client %d: %s\n", clients[fd].id, buffer_write);
+							send_to_all(max_sd, socket_server, fd, clients[fd].msg);
+							bzero(&clients[fd].msg, strlen(clients[fd].msg)); 
+						}
+
 					}
-					buffer_write[j] = '\n';
-					buffer_write[j+1] = '\0';
-					sprintf(clients[fd].msg, "client %d: %s", clients[fd].id, buffer_write);
-					send_to_all (max_sd, socket_server, fd, clients[fd].msg);
+
+
+
+					//int j =0;
+					//while (buffer_read[j] != '\n' && j <= read)
+					// {
+					// 	buffer_write[j] = buffer_read[j];
+					// 	j++;
+					// }
+					// buffer_write[j] = '\n';
+					// buffer_write[j+1] = '\0';
+					// sprintf(clients[fd].msg, "client %d: %s", clients[fd].id, buffer_write);
+					// send_to_all (max_sd, socket_server, fd, clients[fd].msg);
 				}
 			}
 		}
